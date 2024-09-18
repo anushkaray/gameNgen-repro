@@ -1,7 +1,7 @@
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel, DDPMScheduler
 from config_sd import BUFFER_SIZE
-
+from safetensors.torch import load_file
 
 PRETRAINED_MODEL_NAME_OR_PATH = "CompVis/stable-diffusion-v1-4"
 
@@ -27,6 +27,12 @@ def get_model(action_dim: int):
         PRETRAINED_MODEL_NAME_OR_PATH,
         subfolder="unet"
     )
+
+    # Load the weights  
+    vae_checkpoint = load_file("/home/azureuser/dev/gameNgen-repro/vae_ckpts/finetuned_vae/diffusion_pytorch_model.safetensors")  
+ 
+    # Apply the weights to the model  
+    vae.load_state_dict(vae_checkpoint)  
 
     """
     This is to accomodate concatenating previous frames in the channels dimension
