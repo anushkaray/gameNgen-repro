@@ -32,7 +32,7 @@ import transformers
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from huggingface_hub import create_repo, upload_folder
 from packaging import version
 from peft import LoraConfig
@@ -55,7 +55,7 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
-from config_sd import REPO_NAME
+from config_sd import REPO_NAME, DATASET_NAME
 
 
 if is_wandb_available():
@@ -476,12 +476,6 @@ def parse_args():
 
     return args
 
-
-DATASET_NAME_MAPPING = {
-    "lambdalabs/naruto-blip-captions": ("image", "text"),
-}
-
-
 def main():
     args = parse_args()
     if args.report_to == "wandb" and args.hub_token is not None:
@@ -532,10 +526,11 @@ def main():
         if args.output_dir is not None:
             os.makedirs(args.output_dir, exist_ok=True)
 
-        if args.push_to_hub:
-            repo_id = create_repo(
-                repo_id=REPO_NAME, exist_ok=True, token=args.hub_token
-            ).repo_id
+        #Commenting out Repo ID stuff
+        # if args.push_to_hub:
+        #     repo_id = create_repo(
+        #         repo_id=REPO_NAME, exist_ok=True, token=args.hub_token
+        #     ).repo_id
 
         # Get the datasets: you can either provide your own training and evaluation files (see below)
     # or specify a Dataset from the hub (the dataset will be downloaded automatically from the datasets Hub).
@@ -561,9 +556,9 @@ def main():
     #     )
     #     # See more about loading custom images at
     #     # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
-    dataset = load_dataset("P-H-B-D-a16z/ViZDoom-Deathmatch-PPO")
+    dataset = load_from_disk(DATASET_NAME) #We will load from disk instead of huggingface hub
 
-    action_dim = max(dataset["test"][0]["actions"])
+    action_dim = max(dataset[0]["actions"])
     
     unet, vae, action_embedding, noise_scheduler = get_model(action_dim)
 
@@ -724,13 +719,13 @@ def main():
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
             # TODO: split
-            dataset["test"] = (
-                dataset["test"]
+            dataset = (
+                dataset
                 .shuffle(seed=args.seed)
                 .select(range(args.max_train_samples))
             )
         # Set the training transforms
-        train_dataset = dataset["test"].with_transform(preprocess_train)
+        train_dataset = dataset.with_transform(preprocess_train)
 
     def collate_fn(examples):
         # Function to create a black screen tensor
@@ -1122,20 +1117,21 @@ def main():
             noise_scheduler.save_pretrained(
                 os.path.join(args.output_dir, "noise_scheduler")
             )
-            save_model_card(
-                repo_id,
-                # images=images,
-                images=[],
-                base_model=args.pretrained_model_name_or_path,
-                dataset_name=args.dataset_name,
-                repo_folder=args.output_dir,
-            )
-            upload_folder(
-                repo_id=repo_id,
-                folder_path=args.output_dir,
-                commit_message="End of training",
-                ignore_patterns=["step_*", "epoch_*"],
-            )
+            #Commenting out Repo ID Stuff
+            # save_model_card(
+            #     repo_id,
+            #     # images=images,
+            #     images=[],
+            #     base_model=args.pretrained_model_name_or_path,
+            #     dataset_name=args.dataset_name,
+            #     repo_folder=args.output_dir,
+            # )
+            # upload_folder(
+            #     repo_id=repo_id,
+            #     folder_path=args.output_dir,
+            #     commit_message="End of training",
+            #     ignore_patterns=["step_*", "epoch_*"],
+            # )
 
     accelerator.end_training()
 
